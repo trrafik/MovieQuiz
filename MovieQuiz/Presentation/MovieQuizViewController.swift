@@ -1,6 +1,7 @@
 import UIKit
 
-final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
+final class MovieQuizViewController: UIViewController, 
+                                     QuestionFactoryDelegate {
     @IBOutlet private var imageView: UIImageView!
     @IBOutlet private var textLabel: UILabel!
     @IBOutlet private var counterLabel: UILabel!
@@ -24,12 +25,11 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         self.questionFactory = questionFactory
         
         questionFactory.requestNextQuestion()
-        statisticService = StatisticService()
     }
     
     // MARK: - QuestionFactoryDelegate
     func didReceiveNextQuestion(question: QuizQuestion?) {
-        guard let question = question else {
+        guard let question else {
             return
         }
         currentQuestion = question
@@ -41,7 +41,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     }
     
     @IBAction private func noButtonClicked(_ sender: UIButton) {
-        guard let currentQuestion = currentQuestion else {
+        guard let currentQuestion else {
             return
         }
         let givenAnswer = false
@@ -49,7 +49,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     }
     
     @IBAction private func yesButtonClicked(_ sender: UIButton) {
-        guard let currentQuestion = currentQuestion else {
+        guard let currentQuestion else {
             return
         }
         let givenAnswer = true
@@ -86,7 +86,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         
         // запускаем задачу через 1 секунду c помощью диспетчера задач
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            guard let self = self else { return }
+            guard let self else { return }
             self.showNextQuestionOrResults()
         }
     }
@@ -124,7 +124,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
     // приватный метод для показа результатов раунда квиза
     private func showResult(quiz result: QuizResultsViewModel) {
         let alertModel = AlertModel(title: result.title, message: result.text, buttonText: result.buttonText) { [weak self] in
-            guard let self = self else { return }
+            guard let self else { return }
             self.currentQuestionIndex = 0
             self.correctAnswers = 0
             self.questionFactory.requestNextQuestion()
