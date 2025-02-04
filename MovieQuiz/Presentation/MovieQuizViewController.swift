@@ -22,8 +22,10 @@ final class MovieQuizViewController: UIViewController,
     override func viewDidLoad() {
         super.viewDidLoad()
         questionFactory = QuestionFactory(moviesLoader: MoviesLoader(), delegate: self)
+        activityIndicator.hidesWhenStopped = true
         showLoadingIndicator()
         questionFactory?.loadData()
+        
     }
     
     // MARK: - QuestionFactoryDelegate
@@ -150,13 +152,11 @@ final class MovieQuizViewController: UIViewController,
     }
     
     private func showLoadingIndicator() {
-        activityIndicator.isHidden = false // говорим, что индикатор загрузки не скрыт
         activityIndicator.startAnimating() // включаем анимацию
     }
     
     private func hideLoadingIndicator() {
-        activityIndicator.isHidden = true
-        activityIndicator.stopAnimating()
+        activityIndicator.stopAnimating() // выключаем анимацию
     }
     
     private func showNetworkError(message: String) {
@@ -169,7 +169,7 @@ final class MovieQuizViewController: UIViewController,
             
             self.currentQuestionIndex = 0
             self.correctAnswers = 0
-            
+            self.questionFactory?.loadData()
             self.questionFactory?.requestNextQuestion()
         }
         
