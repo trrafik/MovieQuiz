@@ -7,24 +7,25 @@ final class MovieQuizViewController: UIViewController,
     @IBOutlet private var counterLabel: UILabel!
     @IBOutlet private var yesButton: UIButton!
     @IBOutlet private var noButton: UIButton!
+    @IBOutlet private var activityIndicator: UIActivityIndicatorView!
     
     // переменная с индексом текущего вопроса
     private var currentQuestionIndex = 0
     // переменная со счётчиком правильных ответов
     private var correctAnswers = 0
     private let questionsAmount: Int = 10
-    private var questionFactory: QuestionFactoryProtocol = QuestionFactory()
+    private var questionFactory: QuestionFactoryProtocol?
     private var currentQuestion: QuizQuestion?
     private var statisticService: StatisticServiceProtocol = StatisticService()
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        let questionFactory = QuestionFactory()
-        questionFactory.setup(delegate: self)
-        self.questionFactory = questionFactory
+        questionFactory = QuestionFactory(moviesLoader: MoviesLoader(), delegate: self)
+        activityIndicator.hidesWhenStopped = true
+        showLoadingIndicator()
+        questionFactory?.loadData()
         
-        questionFactory.requestNextQuestion()
     }
     
     // MARK: - QuestionFactoryDelegate
@@ -40,6 +41,16 @@ final class MovieQuizViewController: UIViewController,
         }
     }
     
+    func didLoadDataFromServer() {
+        hideLoadingIndicator()
+        questionFactory?.requestNextQuestion()
+    }
+
+    func didFailToLoadData(with error: Error) {
+        showNetworkError(message: error.localizedDescription)
+    }
+    
+    // MARK: - @IBAction
     @IBAction private func noButtonClicked(_ sender: UIButton) {
         guard let currentQuestion else {
             return
@@ -56,10 +67,11 @@ final class MovieQuizViewController: UIViewController,
         showAnswerResult(isCorrect: givenAnswer == currentQuestion.correctAnswer)
     }
     
+    // MARK: - private func
     // метод конвертации, который принимает моковый вопрос и возвращает вью модель для экрана вопроса
     private func convert(model: QuizQuestion) -> QuizStepViewModel {
         let questionStep = QuizStepViewModel (
-            image: UIImage(named: model.image) ?? UIImage(),
+            image: UIImage(data: model.image) ?? UIImage(),
             question: model.text,
             questionNumber: "\(currentQuestionIndex + 1)/\(questionsAmount)")
         return questionStep
@@ -117,7 +129,7 @@ final class MovieQuizViewController: UIViewController,
             showResult(quiz: viewModelAlert)
         } else { // в состояние "Вопрос показан"
             currentQuestionIndex += 1
-            self.questionFactory.requestNextQuestion()
+            self.questionFactory?.requestNextQuestion()
         }
     }
     
@@ -127,7 +139,7 @@ final class MovieQuizViewController: UIViewController,
             guard let self else { return }
             self.currentQuestionIndex = 0
             self.correctAnswers = 0
-            self.questionFactory.requestNextQuestion()
+            self.questionFactory?.requestNextQuestion()
         }
         
         let alertPresenter = AlertPresenter()
@@ -137,5 +149,32 @@ final class MovieQuizViewController: UIViewController,
     private func changeStateButton(isEnabled: Bool){
         yesButton.isEnabled = isEnabled
         noButton.isEnabled = isEnabled
+    }
+    
+    private func showLoadingIndicator() {
+        activityIndicator.startAnimating() // включаем анимацию
+    }
+    
+    private func hideLoadingIndicator() {
+        activityIndicator.stopAnimating() // выключаем анимацию
+    }
+    
+    private func showNetworkError(message: String) {
+        hideLoadingIndicator() // скрываем индикатор загрузки
+        
+        let alertModel = AlertModel(title: "Ошибка",
+                                    message: message,
+                                    buttonText: "Попробовать ещё раз") { [weak self] in
+            guard let self else { return }
+            
+            self.currentQuestionIndex = 0
+            self.correctAnswers = 0
+            self.questionFactory?.loadData()
+            self.questionFactory?.requestNextQuestion()
+        }
+        
+        
+        let alertPresenter = AlertPresenter()
+        alertPresenter.showAlert(alertModel: alertModel, controller: self)
     }
 }
