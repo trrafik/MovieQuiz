@@ -12,8 +12,7 @@ final class MovieQuizViewController: UIViewController,
     private var correctAnswers = 0
     private let presenter = MovieQuizPresenter()
     private var questionFactory: QuestionFactoryProtocol?
-    private var currentQuestion: QuizQuestion?
-    private var statisticService: StatisticServiceProtocol = StatisticService()
+    //private var statisticService: StatisticServiceProtocol = StatisticService()
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -28,15 +27,7 @@ final class MovieQuizViewController: UIViewController,
     
     // MARK: - QuestionFactoryDelegate
     func didReceiveNextQuestion(question: QuizQuestion?) {
-        guard let question else {
-            return
-        }
-        currentQuestion = question
-        let viewModel = presenter.convert(model: question)
-        
-        DispatchQueue.main.async { [weak self] in
-            self?.show(quiz: viewModel)
-        }
+        presenter.didReceiveNextQuestion(question: question)
     }
     
     func didLoadDataFromServer() {
@@ -50,18 +41,16 @@ final class MovieQuizViewController: UIViewController,
     
     // MARK: - @IBAction
     @IBAction private func noButtonClicked(_ sender: UIButton) {
-        presenter.currentQuestion = currentQuestion
         presenter.noButtonClicked()
     }
     
     @IBAction private func yesButtonClicked(_ sender: UIButton) {
-        presenter.currentQuestion = currentQuestion
         presenter.yesButtonClicked()
     }
     
     // MARK: - private func
     // приватный метод вывода на экран вопроса, который принимает на вход вью модель вопроса
-    private func show(quiz step: QuizStepViewModel) {
+    func show(quiz step: QuizStepViewModel) {
         imageView.image = step.image
         textLabel.text = step.question
         counterLabel.text = step.questionNumber
@@ -82,42 +71,44 @@ final class MovieQuizViewController: UIViewController,
         // запускаем задачу через 1 секунду c помощью диспетчера задач
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             guard let self else { return }
-            self.showNextQuestionOrResults()
+            self.presenter.correctAnswers = self.correctAnswers
+            self.presenter.questionFactory = self.questionFactory
+            self.presenter.showNextQuestionOrResults()
         }
     }
     
-    // приватный метод, который содержит логику перехода в один из сценариев
-    private func showNextQuestionOrResults() {
-        if presenter.isLastQuestion() { // в состояние "Результат квиза"
-            let currentGame = GameResult(correct: correctAnswers, total: presenter.questionsAmount, date: Date())
-            statisticService.store(currentGame)
-            
-            let gamesCount = statisticService.gamesCount
-            let bestGame = statisticService.bestGame
-            let totalAccuracy = "\(String(format: "%.2f", statisticService.totalAccuracy))%"
-            let bestGameDate = bestGame.date.dateTimeString
-            
-            let resultText = """
-               Ваш результат: \(correctAnswers)/\(presenter.questionsAmount)
-               Количество сыгранных квизов: \(gamesCount)
-               Рекорд: \(bestGame.correct)/\(bestGame.total) ( \(bestGameDate) )
-               Средняя точность: \(totalAccuracy)
-               """
-            
-            let viewModelAlert = QuizResultsViewModel(
-                title: "Этот раунд окончен!",
-                text: resultText,
-                buttonText: "Сыграть еще раз")
-            
-            showResult(quiz: viewModelAlert)
-        } else { // в состояние "Вопрос показан"
-            presenter.switchToNextQuestion()
-            self.questionFactory?.requestNextQuestion()
-        }
-    }
+//    // приватный метод, который содержит логику перехода в один из сценариев
+//    private func showNextQuestionOrResults() {
+//        if presenter.isLastQuestion() { // в состояние "Результат квиза"
+//            let currentGame = GameResult(correct: correctAnswers, total: presenter.questionsAmount, date: Date())
+//            statisticService.store(currentGame)
+//            
+//            let gamesCount = statisticService.gamesCount
+//            let bestGame = statisticService.bestGame
+//            let totalAccuracy = "\(String(format: "%.2f", statisticService.totalAccuracy))%"
+//            let bestGameDate = bestGame.date.dateTimeString
+//            
+//            let resultText = """
+//               Ваш результат: \(correctAnswers)/\(presenter.questionsAmount)
+//               Количество сыгранных квизов: \(gamesCount)
+//               Рекорд: \(bestGame.correct)/\(bestGame.total) ( \(bestGameDate) )
+//               Средняя точность: \(totalAccuracy)
+//               """
+//            
+//            let viewModelAlert = QuizResultsViewModel(
+//                title: "Этот раунд окончен!",
+//                text: resultText,
+//                buttonText: "Сыграть еще раз")
+//            
+//            showResult(quiz: viewModelAlert)
+//        } else { // в состояние "Вопрос показан"
+//            presenter.switchToNextQuestion()
+//            self.questionFactory?.requestNextQuestion()
+//        }
+//    }
     
     // приватный метод для показа результатов раунда квиза
-    private func showResult(quiz result: QuizResultsViewModel) {
+    func showResult(quiz result: QuizResultsViewModel) {
         let alertModel = AlertModel(title: result.title, message: result.text, buttonText: result.buttonText) { [weak self] in
             guard let self else { return }
             self.presenter.resetQuestionIndex()
