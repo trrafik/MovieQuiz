@@ -2,40 +2,65 @@ import UIKit
 
 
 final class MovieQuizPresenter: QuestionFactoryDelegate {
+    private var statisticService: StatisticServiceProtocol!
     private var questionFactory: QuestionFactoryProtocol?
     private weak var viewController: MovieQuizViewController?
     
+    private var currentQuestion: QuizQuestion?
+    private let questionsAmount: Int = 10
+    private var currentQuestionIndex: Int = 0
+    private var correctAnswers: Int = 0
+    
+    
     init(viewController: MovieQuizViewController) {
         self.viewController = viewController
+        
+        statisticService = StatisticService()
         
         questionFactory = QuestionFactory(moviesLoader: MoviesLoader(), delegate: self)
         questionFactory?.loadData()
         viewController.showLoadingIndicator()
     }
-    let questionsAmount: Int = 10
-    private var currentQuestionIndex: Int = 0
+
+    // MARK: - QuestionFactoryDelegate
     
-    var currentQuestion: QuizQuestion?
-    //weak var viewController: MovieQuizViewController?
-    
-    var correctAnswers: Int = 0
-    private var statisticService: StatisticServiceProtocol = StatisticService()
-    //var questionFactory: QuestionFactoryProtocol?
-    
-    func isLastQuestion() -> Bool {
-        currentQuestionIndex == questionsAmount - 1
+    func didLoadDataFromServer() {
+           viewController?.hideLoadingIndicator()
+           questionFactory?.requestNextQuestion()
+       }
+       
+    func didFailToLoadData(with error: Error) {
+       let message = error.localizedDescription
+       viewController?.showNetworkError(message: message)
     }
     
-    func restartGame() {
-        currentQuestionIndex = 0
-        correctAnswers = 0
-        questionFactory?.requestNextQuestion()
+    func didReceiveNextQuestion(question: QuizQuestion?) {
+        guard let question else {
+            return
+        }
+        currentQuestion = question
+        let viewModel = convert(model: question)
+        
+        DispatchQueue.main.async { [weak self] in
+            self?.viewController?.show(quiz: viewModel)
+        }
+    }
+    
+    // MARK: - count Answers and Questions functions
+    func isLastQuestion() -> Bool {
+        currentQuestionIndex == questionsAmount - 1
     }
     
     func didAnswer(isCorrectAnswer: Bool) {
         if isCorrectAnswer {
             correctAnswers += 1
         }
+    }
+    
+    func restartGame() {
+        currentQuestionIndex = 0
+        correctAnswers = 0
+        questionFactory?.requestNextQuestion()
     }
     
     func switchToNextQuestion() {
@@ -63,33 +88,21 @@ final class MovieQuizPresenter: QuestionFactoryDelegate {
             return
         }
         let givenAnswer = isYes
-        viewController?.showAnswerResult(isCorrect: givenAnswer == currentQuestion.correctAnswer)
+        proceedWithAnswer(isCorrect: givenAnswer == currentQuestion.correctAnswer)
     }
     
-    func didLoadDataFromServer() {
-           viewController?.hideLoadingIndicator()
-           questionFactory?.requestNextQuestion()
-       }
-       
-    func didFailToLoadData(with error: Error) {
-       let message = error.localizedDescription
-       viewController?.showNetworkError(message: message)
-    }
-    
-    func didReceiveNextQuestion(question: QuizQuestion?) {
-        guard let question else {
-            return
-        }
-        currentQuestion = question
-        let viewModel = convert(model: question)
+    private func proceedWithAnswer(isCorrect: Bool) {
+        didAnswer(isCorrectAnswer: isCorrect)
         
-        DispatchQueue.main.async { [weak self] in
-            self?.viewController?.show(quiz: viewModel)
+        viewController?.highlightImageBorder(isCorrectAnswer: isCorrect)
+        // запускаем задачу через 1 секунду c помощью диспетчера задач
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            guard let self else { return }
+            self.proceedToNextQuestionOrResults()
         }
     }
-    
 
-    func showNextQuestionOrResults() {
+    private func proceedToNextQuestionOrResults() {
         if self.isLastQuestion() { // в состояние "Результат квиза"
             let currentGame = GameResult(correct: self.correctAnswers, total: self.questionsAmount, date: Date())
             statisticService.store(currentGame)

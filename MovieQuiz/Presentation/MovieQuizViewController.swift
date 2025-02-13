@@ -18,7 +18,7 @@ final class MovieQuizViewController: UIViewController {
         presenter = MovieQuizPresenter(viewController: self)
     }
     
-    // MARK: - @IBAction
+    // MARK: - actions
     @IBAction private func noButtonClicked(_ sender: UIButton) {
         presenter.noButtonClicked()
     }
@@ -27,8 +27,7 @@ final class MovieQuizViewController: UIViewController {
         presenter.yesButtonClicked()
     }
     
-    // MARK: - private func
-    // приватный метод вывода на экран вопроса, который принимает на вход вью модель вопроса
+    // MARK: - functions
     func show(quiz step: QuizStepViewModel) {
         imageView.image = step.image
         textLabel.text = step.question
@@ -37,22 +36,13 @@ final class MovieQuizViewController: UIViewController {
         changeStateButton(isEnabled: true)
     }
     
-    // приватный метод, который обрабатывает результат ответа
-    func showAnswerResult(isCorrect: Bool) {
+    func highlightImageBorder(isCorrectAnswer: Bool) {
         changeStateButton(isEnabled: false)
-        presenter.didAnswer(isCorrectAnswer: isCorrect)
         imageView.layer.masksToBounds = true
         imageView.layer.borderWidth = 8
-        imageView.layer.borderColor = isCorrect ? UIColor.ypGreen.cgColor : UIColor.ypRed.cgColor
-        
-        // запускаем задачу через 1 секунду c помощью диспетчера задач
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            guard let self else { return }
-            self.presenter.showNextQuestionOrResults()
-        }
+        imageView.layer.borderColor = isCorrectAnswer ? UIColor.ypGreen.cgColor : UIColor.ypRed.cgColor
     }
     
-    // приватный метод для показа результатов раунда квиза
     func showResult(quiz result: QuizResultsViewModel) {
         let alertModel = AlertModel(title: result.title, message: result.text, buttonText: result.buttonText) { [weak self] in
             guard let self else { return }
