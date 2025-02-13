@@ -1,19 +1,41 @@
 import UIKit
 
 
-final class MovieQuizPresenter {
+final class MovieQuizPresenter: QuestionFactoryDelegate {
+    private var questionFactory: QuestionFactoryProtocol?
+    private weak var viewController: MovieQuizViewController?
+    
+    init(viewController: MovieQuizViewController) {
+        self.viewController = viewController
+        
+        questionFactory = QuestionFactory(moviesLoader: MoviesLoader(), delegate: self)
+        questionFactory?.loadData()
+        viewController.showLoadingIndicator()
+    }
     let questionsAmount: Int = 10
     private var currentQuestionIndex: Int = 0
     
     var currentQuestion: QuizQuestion?
-    weak var viewController: MovieQuizViewController?
+    //weak var viewController: MovieQuizViewController?
+    
+    var correctAnswers: Int = 0
+    private var statisticService: StatisticServiceProtocol = StatisticService()
+    //var questionFactory: QuestionFactoryProtocol?
     
     func isLastQuestion() -> Bool {
         currentQuestionIndex == questionsAmount - 1
     }
     
-    func resetQuestionIndex() {
+    func restartGame() {
         currentQuestionIndex = 0
+        correctAnswers = 0
+        questionFactory?.requestNextQuestion()
+    }
+    
+    func didAnswer(isCorrectAnswer: Bool) {
+        if isCorrectAnswer {
+            correctAnswers += 1
+        }
     }
     
     func switchToNextQuestion() {
@@ -44,6 +66,16 @@ final class MovieQuizPresenter {
         viewController?.showAnswerResult(isCorrect: givenAnswer == currentQuestion.correctAnswer)
     }
     
+    func didLoadDataFromServer() {
+           viewController?.hideLoadingIndicator()
+           questionFactory?.requestNextQuestion()
+       }
+       
+    func didFailToLoadData(with error: Error) {
+       let message = error.localizedDescription
+       viewController?.showNetworkError(message: message)
+    }
+    
     func didReceiveNextQuestion(question: QuizQuestion?) {
         guard let question else {
             return
@@ -56,12 +88,10 @@ final class MovieQuizPresenter {
         }
     }
     
-    var correctAnswers: Int = 0
-    private var statisticService: StatisticServiceProtocol = StatisticService()
-    var questionFactory: QuestionFactoryProtocol?
+
     func showNextQuestionOrResults() {
         if self.isLastQuestion() { // в состояние "Результат квиза"
-            let currentGame = GameResult(correct: correctAnswers, total: self.questionsAmount, date: Date())
+            let currentGame = GameResult(correct: self.correctAnswers, total: self.questionsAmount, date: Date())
             statisticService.store(currentGame)
             
             let gamesCount = statisticService.gamesCount
@@ -70,7 +100,7 @@ final class MovieQuizPresenter {
             let bestGameDate = bestGame.date.dateTimeString
             
             let resultText = """
-               Ваш результат: \(correctAnswers)/\(self.questionsAmount)
+               Ваш результат: \(self.correctAnswers)/\(self.questionsAmount)
                Количество сыгранных квизов: \(gamesCount)
                Рекорд: \(bestGame.correct)/\(bestGame.total) ( \(bestGameDate) )
                Средняя точность: \(totalAccuracy)
