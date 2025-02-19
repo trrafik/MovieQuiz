@@ -2,7 +2,7 @@ import UIKit
 
 
 final class MovieQuizPresenter: QuestionFactoryDelegate {
-    private var statisticService: StatisticServiceProtocol!
+    private var statisticService: StatisticServiceProtocol?
     private var questionFactory: QuestionFactoryProtocol?
     private weak var viewController: MovieQuizViewControllerProtocol?
     
@@ -21,66 +21,20 @@ final class MovieQuizPresenter: QuestionFactoryDelegate {
         questionFactory?.loadData()
         viewController.showLoadingIndicator()
     }
-
-    // MARK: - QuestionFactoryDelegate
     
-    func didLoadDataFromServer() {
-           viewController?.hideLoadingIndicator()
-           questionFactory?.requestNextQuestion()
-       }
-       
-    func didFailToLoadData(with error: Error) {
-       let message = error.localizedDescription
-       viewController?.showNetworkError(message: message)
-    }
-    
-    func didReceiveNextQuestion(question: QuizQuestion?) {
-        guard let question else {
-            return
-        }
-        currentQuestion = question
-        let viewModel = convert(model: question)
-        
-        DispatchQueue.main.async { [weak self] in
-            self?.viewController?.show(quiz: viewModel)
-        }
-    }
-    
-    // MARK: - count Answers and Questions functions
-    func isLastQuestion() -> Bool {
+    // MARK: - private functions
+    private func isLastQuestion() -> Bool {
         currentQuestionIndex == questionsAmount - 1
     }
     
-    func didAnswer(isCorrectAnswer: Bool) {
+    private func didAnswer(isCorrectAnswer: Bool) {
         if isCorrectAnswer {
             correctAnswers += 1
         }
     }
     
-    func restartGame() {
-        currentQuestionIndex = 0
-        correctAnswers = 0
-        questionFactory?.requestNextQuestion()
-    }
-    
-    func switchToNextQuestion() {
+    private func switchToNextQuestion() {
         currentQuestionIndex += 1
-    }
-    
-    func convert(model: QuizQuestion) -> QuizStepViewModel {
-        let questionStep = QuizStepViewModel (
-            image: UIImage(data: model.image) ?? UIImage(),
-            question: model.text,
-            questionNumber: "\(currentQuestionIndex + 1)/\(questionsAmount)")
-        return questionStep
-    }
-    
-    func yesButtonClicked() {
-        didAnswer(isYes: true)
-    }
-    
-    func noButtonClicked() {
-        didAnswer(isYes: false)
     }
     
     private func didAnswer(isYes: Bool) {
@@ -104,6 +58,7 @@ final class MovieQuizPresenter: QuestionFactoryDelegate {
 
     private func proceedToNextQuestionOrResults() {
         if self.isLastQuestion() { // в состояние "Результат квиза"
+            guard let statisticService else {return}
             let currentGame = GameResult(correct: self.correctAnswers, total: self.questionsAmount, date: Date())
             statisticService.store(currentGame)
             
@@ -129,5 +84,49 @@ final class MovieQuizPresenter: QuestionFactoryDelegate {
             self.switchToNextQuestion()
             self.questionFactory?.requestNextQuestion()
         }
+    }
+    // MARK: - QuestionFactoryDelegate
+    func didLoadDataFromServer() {
+           viewController?.hideLoadingIndicator()
+           questionFactory?.requestNextQuestion()
+       }
+       
+    func didFailToLoadData(with error: Error) {
+       let message = error.localizedDescription
+       viewController?.showNetworkError(message: message)
+    }
+    
+    func didReceiveNextQuestion(question: QuizQuestion?) {
+        guard let question else {
+            return
+        }
+        currentQuestion = question
+        let viewModel = convert(model: question)
+        
+        DispatchQueue.main.async { [weak self] in
+            self?.viewController?.show(quiz: viewModel)
+        }
+    }
+    
+    func restartGame() {
+        currentQuestionIndex = 0
+        correctAnswers = 0
+        questionFactory?.requestNextQuestion()
+    }
+    
+    func convert(model: QuizQuestion) -> QuizStepViewModel {
+        let questionStep = QuizStepViewModel (
+            image: UIImage(data: model.image) ?? UIImage(),
+            question: model.text,
+            questionNumber: "\(currentQuestionIndex + 1)/\(questionsAmount)")
+        return questionStep
+    }
+    
+    func yesButtonClicked() {
+        didAnswer(isYes: true)
+    }
+    
+    func noButtonClicked() {
+        didAnswer(isYes: false)
     }
 }
